@@ -282,27 +282,22 @@ class CashflowRecord(models.Model):
         Raises:
             ValidationError: Если категория или подкатегория не соответствуют выбранным полям.
         """
-        if (
-            self.category
-            and self.operation_type
-            and self.category.operation_type_id != self.operation_type_id
-        ):
-            raise ValidationError(
-                {
-                    "category": "Выбранная категория не относится к выбранному типу операции."
-                }
-            )
+        errors = {}
 
-        if (
-            self.subcategory
-            and self.category
-            and self.subcategory.category_id != self.category_id
-        ):
-            raise ValidationError(
-                {
-                    "subcategory": "Выбранная подкатегория не относится к выбранной категории."
-                }
-            )
+        if self.category_id is not None and self.operation_type_id is not None:
+            if self.category.operation_type_id != self.operation_type_id:
+                errors["category"] = (
+                    "Выбранная категория не относится к выбранному типу операции."
+                )
+
+        if self.subcategory_id is not None and self.category_id is not None:
+            if self.subcategory.category_id != self.category_id:
+                errors["subcategory"] = (
+                    "Выбранная подкатегория не относится к выбранной категории."
+                )
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         return f"{self.record_date} {self.amount:.2f} ₽"

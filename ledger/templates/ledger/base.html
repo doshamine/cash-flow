@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Cash Flow{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'ledger/css/styles.css' %}">
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar__inner">
+            <a href="{% url 'cashflow_list' %}" class="brand">
+                Cash<span>Flow</span>
+            </a>
+
+            <nav class="nav">
+                <a href="{% url 'cashflow_list' %}"
+                   class="{% if request.resolver_match.url_name == 'cashflow_list' %}active{% endif %}">
+                    Записи ДДС
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

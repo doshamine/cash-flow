@@ -1,6 +1,15 @@
 from django.contrib import messages
+from django.db.models import RestrictedError
+from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import (
+    ListView,
+    CreateView,
+    UpdateView,
+    DeleteView,
+    TemplateView,
+)
 
 from .forms import (
     CashflowRecordForm,
@@ -18,45 +27,49 @@ from .models import (
 )
 
 
+def load_categories(request):
+    """Возвращает JSON-список категорий, отфильтрованных по типу операции."""
+    operation_type_id = request.GET.get("operation_type")
+    categories = Category.objects.none()
+
+    if operation_type_id:
+        categories = Category.objects.filter(
+            operation_type_id=operation_type_id
+        ).order_by("name")
+
+    data = [
+        {"id": category.id, "name": category.name}
+        for category in categories
+    ]
+    return JsonResponse(data, safe=False)
+
+
+def load_subcategories(request):
+    """Возвращает JSON-список подкатегорий, отфильтрованных по категории."""
+    category_id = request.GET.get("category")
+    subcategories = Subcategory.objects.none()
+
+    if category_id:
+        subcategories = Subcategory.objects.filter(
+            category_id=category_id
+        ).order_by("name")
+
+    data = [
+        {"id": subcategory.id, "name": subcategory.name}
+        for subcategory in subcategories
+    ]
+    return JsonResponse(data, safe=False)
+
+
 class CashflowRecordListView(ListView):
-    """
-    Представление списка записей о ДДС с фильтрацией по параметрам запроса.
-
-    Отображает список `CashflowRecord` и поддерживает фильтры по периоду дат,
-    статусу, типу операции, категории и подкатегории.
-
-    Attributes:
-        model (CashflowRecord): Модель записей о ДДС.
-        template_name (str): Шаблон страницы списка.
-        context_object_name (str): Имя списка записей в контексте шаблона.
-
-    Related:
-        - Status: Используется для фильтрации по статусу.
-        - OperationType: Используется для фильтрации по типу операции.
-        - Category: Используется для фильтрации по категории.
-        - Subcategory: Используется для фильтрации по подкатегории.
-
-    Example:
-        /?date_from=2026-01-01&date_to=2026-01-31&operation_type=1&category=3
-    """
+    """Отображает список записей ДДС с фильтрацией по параметрам запроса."""
 
     model = CashflowRecord
     template_name = "ledger/cashflow_records/list.html"
     context_object_name = "records"
 
     def get_queryset(self):
-        """
-        Возвращает queryset записей с примененными фильтрами из `request.GET`.
-
-        Behavior:
-            - Использует `select_related` для связанных справочников.
-            - Применяет фильтры только при наличии значений в query-параметрах.
-            - Поддерживает фильтрацию по полям `record_date`, `status_id`,
-              `operation_type_id`, `category_id`, `subcategory_id`.
-
-        Returns:
-            QuerySet[CashflowRecord]: Отфильтрованный список записей.
-        """
+        """Возвращает queryset записей с фильтрами из query-параметров."""
         queryset = CashflowRecord.objects.select_related(
             "status", "operation_type", "category", "subcategory"
         ).all()
@@ -84,18 +97,7 @@ class CashflowRecordListView(ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
-        """
-        Формирует контекст для страницы списка и формы фильтров.
-
-        Behavior:
-            - Подготавливает справочники для селектов фильтров.
-            - Ограничивает категории выбранным типом операции.
-            - Ограничивает подкатегории выбранной категорией.
-            - Сохраняет текущие значения фильтров в `context["filters"]`.
-
-        Returns:
-            dict: Контекст шаблона со списками справочников и текущими фильтрами.
-        """
+        """Формирует контекст страницы списка и текущих значений фильтров."""
         context = super().get_context_data(**kwargs)
 
         operation_type_id = self.request.GET.get("operation_type")
@@ -126,21 +128,7 @@ class CashflowRecordListView(ListView):
 
 
 class CashflowRecordCreateView(CreateView):
-    """
-    Представление создания записи о ДДС.
-
-    Использует `CashflowRecordForm` и после успешного сохранения
-    перенаправляет пользователя на страницу списка записей.
-
-    Attributes:
-        model (CashflowRecord): Модель записи о ДДС.
-        form_class (CashflowRecordForm): Форма создания записи.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после успешного сохранения.
-
-    Example:
-        Пользователь заполняет форму и получает сообщение об успешном создании.
-    """
+    """Создает запись ДДС и показывает сообщение об успешном сохранении."""
 
     model = CashflowRecord
     form_class = CashflowRecordForm
@@ -158,19 +146,7 @@ class CashflowRecordCreateView(CreateView):
 
 
 class CashflowRecordUpdateView(UpdateView):
-    """
-    Представление редактирования существующей записи о ДДС.
-
-    Attributes:
-        model (CashflowRecord): Модель записи о ДДС.
-        form_class (CashflowRecordForm): Форма редактирования записи.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после успешного обновления.
-
-    Example:
-        Пользователь изменяет данные записи и получает сообщение
-        об успешном обновлении.
-    """
+    """Обновляет запись ДДС и показывает сообщение об успешном обновлении."""
 
     model = CashflowRecord
     form_class = CashflowRecordForm
@@ -188,18 +164,7 @@ class CashflowRecordUpdateView(UpdateView):
 
 
 class CashflowRecordDeleteView(DeleteView):
-    """
-    Представление удаления записи о ДДС с подтверждением.
-
-    Attributes:
-        model (CashflowRecord): Модель записи о ДДС.
-        template_name (str): Шаблон подтверждения удаления.
-        success_url (str): URL редиректа после удаления.
-        context_object_name (str): Имя объекта в контексте шаблона.
-
-    Example:
-        После подтверждения удаления отображается сообщение об успехе.
-    """
+    """Удаляет запись ДДС с подтверждением и показывает сообщение об успехе."""
 
     model = CashflowRecord
     template_name = "ledger/cashflow_records/confirm_delete.html"
@@ -211,21 +176,31 @@ class CashflowRecordDeleteView(DeleteView):
         return super().form_valid(form)
 
 
-class StatusCreateView(CreateView):
-    """
-    Представление создания статуса.
+class ReferencesListView(TemplateView):
+    """Отображает страницу управления справочниками."""
 
-    Attributes:
-        model (Status): Модель статусов.
-        form_class (StatusForm): Форма создания статуса.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после сохранения.
-    """
+    template_name = "ledger/references/list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["all_statuses"] = Status.objects.all().order_by("name")
+        context["all_operation_types"] = OperationType.objects.all().order_by("name")
+        context["all_categories"] = (
+            Category.objects.select_related("operation_type").all().order_by("name")
+        )
+        context["all_subcategories"] = (
+            Subcategory.objects.select_related("category").all().order_by("name")
+        )
+        return context
+
+
+class StatusCreateView(CreateView):
+    """Создает статус и показывает сообщение об успешном сохранении."""
 
     model = Status
     form_class = StatusForm
-    template_name = "ledger/statuses/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -238,20 +213,12 @@ class StatusCreateView(CreateView):
 
 
 class StatusUpdateView(UpdateView):
-    """
-    Представление редактирования статуса.
-
-    Attributes:
-        model (Status): Модель статусов.
-        form_class (StatusForm): Форма редактирования статуса.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после обновления.
-    """
+    """Обновляет статус и показывает сообщение об успешном обновлении."""
 
     model = Status
     form_class = StatusForm
-    template_name = "ledger/statuses/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -264,20 +231,17 @@ class StatusUpdateView(UpdateView):
 
 
 class StatusDeleteView(DeleteView):
-    """
-    Представление удаления статуса.
-
-    Attributes:
-        model (Status): Модель статусов.
-        template_name (str): Шаблон подтверждения удаления.
-        success_url (str): URL редиректа после удаления.
-        context_object_name (str): Имя удаляемого объекта в контексте.
-    """
+    """Удаляет статус и показывает сообщение об успешном удалении."""
 
     model = Status
-    template_name = "ledger/statuses/confirm_delete.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/confirm_delete.html"
+    success_url = reverse_lazy("references_list")
     context_object_name = "status"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Удалить статус"
+        return context
 
     def form_valid(self, form):
         messages.success(self.request, "Статус успешно удален.")
@@ -285,20 +249,12 @@ class StatusDeleteView(DeleteView):
 
 
 class OperationTypeCreateView(CreateView):
-    """
-    Представление создания типа операции.
-
-    Attributes:
-        model (OperationType): Модель типов операций.
-        form_class (OperationTypeForm): Форма создания.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после сохранения.
-    """
+    """Создает тип операции и показывает сообщение об успешном сохранении."""
 
     model = OperationType
     form_class = OperationTypeForm
-    template_name = "ledger/operation_types/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -311,20 +267,12 @@ class OperationTypeCreateView(CreateView):
 
 
 class OperationTypeUpdateView(UpdateView):
-    """
-    Представление редактирования типа операции.
-
-    Attributes:
-        model (OperationType): Модель типов операций.
-        form_class (OperationTypeForm): Форма редактирования.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после обновления.
-    """
+    """Обновляет тип операции и показывает сообщение об успешном обновлении."""
 
     model = OperationType
     form_class = OperationTypeForm
-    template_name = "ledger/operation_types/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -337,41 +285,37 @@ class OperationTypeUpdateView(UpdateView):
 
 
 class OperationTypeDeleteView(DeleteView):
-    """
-    Представление удаления типа операции.
-
-    Attributes:
-        model (OperationType): Модель типов операций.
-        template_name (str): Шаблон подтверждения удаления.
-        success_url (str): URL редиректа после удаления.
-        context_object_name (str): Имя удаляемого объекта в контексте.
-    """
+    """Удаляет тип операции; при ограничениях показывает сообщение об ошибке."""
 
     model = OperationType
-    template_name = "ledger/operation_types/confirm_delete.html"
-    success_url = reverse_lazy("cashflow_list")
-    context_object_name = "operation_type"
+    template_name = "ledger/references/confirm_delete.html"
+    success_url = reverse_lazy("references_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Удалить тип операции"
+        return context
 
     def form_valid(self, form):
+        try:
+            response = super().form_valid(form)
+        except RestrictedError:
+            messages.error(
+                self.request,
+                "Нельзя удалить тип операции: есть связанные категории или записи.",
+            )
+            return redirect(self.request.path)
         messages.success(self.request, "Тип операции успешно удален.")
-        return super().form_valid(form)
+        return response
 
 
 class CategoryCreateView(CreateView):
-    """
-    Представление создания категории.
-
-    Attributes:
-        model (Category): Модель категорий.
-        form_class (CategoryForm): Форма создания.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после сохранения.
-    """
+    """Создает категорию и показывает сообщение об успешном сохранении."""
 
     model = Category
     form_class = CategoryForm
-    template_name = "ledger/categories/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -384,20 +328,12 @@ class CategoryCreateView(CreateView):
 
 
 class CategoryUpdateView(UpdateView):
-    """
-    Представление редактирования категории.
-
-    Attributes:
-        model (Category): Модель категорий.
-        form_class (CategoryForm): Форма редактирования.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после обновления.
-    """
+    """Обновляет категорию и показывает сообщение об успешном обновлении."""
 
     model = Category
     form_class = CategoryForm
-    template_name = "ledger/categories/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -410,41 +346,37 @@ class CategoryUpdateView(UpdateView):
 
 
 class CategoryDeleteView(DeleteView):
-    """
-    Представление удаления категории.
-
-    Attributes:
-        model (Category): Модель категорий.
-        template_name (str): Шаблон подтверждения удаления.
-        success_url (str): URL редиректа после удаления.
-        context_object_name (str): Имя удаляемого объекта в контексте.
-    """
+    """Удаляет категорию; при ограничениях показывает сообщение об ошибке."""
 
     model = Category
-    template_name = "ledger/categories/confirm_delete.html"
-    success_url = reverse_lazy("cashflow_list")
-    context_object_name = "category"
+    template_name = "ledger/references/confirm_delete.html"
+    success_url = reverse_lazy("references_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Удалить категорию"
+        return context
 
     def form_valid(self, form):
+        try:
+            response = super().form_valid(form)
+        except RestrictedError:
+            messages.error(
+                self.request,
+                "Нельзя удалить категорию: есть связанные подкатегории или записи.",
+            )
+            return redirect(self.request.path)
         messages.success(self.request, "Категория успешно удалена.")
-        return super().form_valid(form)
+        return response
 
 
 class SubcategoryCreateView(CreateView):
-    """
-    Представление создания подкатегории.
-
-    Attributes:
-        model (Subcategory): Модель подкатегорий.
-        form_class (SubcategoryForm): Форма создания.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после сохранения.
-    """
+    """Создает подкатегорию и показывает сообщение об успешном сохранении."""
 
     model = Subcategory
     form_class = SubcategoryForm
-    template_name = "ledger/subcategories/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -457,20 +389,12 @@ class SubcategoryCreateView(CreateView):
 
 
 class SubcategoryUpdateView(UpdateView):
-    """
-    Представление редактирования подкатегории.
-
-    Attributes:
-        model (Subcategory): Модель подкатегорий.
-        form_class (SubcategoryForm): Форма редактирования.
-        template_name (str): Шаблон формы.
-        success_url (str): URL редиректа после обновления.
-    """
+    """Обновляет подкатегорию и показывает сообщение об успешном обновлении."""
 
     model = Subcategory
     form_class = SubcategoryForm
-    template_name = "ledger/subcategories/form.html"
-    success_url = reverse_lazy("cashflow_list")
+    template_name = "ledger/references/form.html"
+    success_url = reverse_lazy("references_list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -483,21 +407,24 @@ class SubcategoryUpdateView(UpdateView):
 
 
 class SubcategoryDeleteView(DeleteView):
-    """
-    Представление удаления подкатегории.
-
-    Attributes:
-        model (Subcategory): Модель подкатегорий.
-        template_name (str): Шаблон подтверждения удаления.
-        success_url (str): URL редиректа после удаления.
-        context_object_name (str): Имя удаляемого объекта в контексте.
-    """
+    """Удаляет подкатегорию; при ограничениях показывает сообщение об ошибке."""
 
     model = Subcategory
-    template_name = "ledger/subcategories/confirm_delete.html"
-    success_url = reverse_lazy("cashflow_list")
-    context_object_name = "subcategory"
+    template_name = "ledger/references/confirm_delete.html"
+    success_url = reverse_lazy("references_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Удалить подкатегорию"
+        return context
 
     def form_valid(self, form):
+        try:
+            response = super().form_valid(form)
+        except RestrictedError:
+            messages.error(
+                self.request, "Нельзя удалить подкатегорию: есть связанные записи."
+            )
+            return redirect(self.request.path)
         messages.success(self.request, "Подкатегория успешно удалена.")
-        return super().form_valid(form)
+        return response

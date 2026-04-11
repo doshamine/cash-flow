@@ -1,0 +1,16 @@
+[
+  {
+    "model": "ledger.operationtype",
+    "pk": 1,
+    "fields": {
+      "name": "Пополнение"
+    }
+  },
+  {
+    "model": "ledger.operationtype",
+    "pk": 2,
+    "fields": {
+      "name": "Списание"
+    }
+  }
+]

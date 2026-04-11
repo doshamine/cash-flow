@@ -1,0 +1,47 @@
+[
+  {
+    "model": "ledger.cashflowrecord",
+    "pk": 1,
+    "fields": {
+      "record_date": "2025-01-01",
+      "status": 1,
+      "operation_type": 2,
+      "category": 1,
+      "subcategory": 1,
+      "amount": "1500.00",
+      "comment": "Оплата VPS сервера",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "ledger.cashflowrecord",
+    "pk": 2,
+    "fields": {
+      "record_date": "2025-01-02",
+      "status": 1,
+      "operation_type": 2,
+      "category": 2,
+      "subcategory": 4,
+      "amount": "3000.00",
+      "comment": "Продвижение на Avito",
+      "created_at": "2025-01-02T11:30:00Z",
+      "updated_at": "2025-01-02T11:30:00Z"
+    }
+  },
+  {
+    "model": "ledger.cashflowrecord",
+    "pk": 3,
+    "fields": {
+      "record_date": "2025-01-03",
+      "status": 2,
+      "operation_type": 1,
+      "category": 3,
+      "subcategory": 5,
+      "amount": "25000.00",
+      "comment": "Поступление оплаты",
+      "created_at": "2025-01-03T09:15:00Z",
+      "updated_at": "2025-01-03T09:15:00Z"
+    }
+  }
+]

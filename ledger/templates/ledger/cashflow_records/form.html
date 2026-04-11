@@ -1,0 +1,112 @@
+{% extends "ledger/base.html" %}
+
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="page-header__content">
+        <h1>{{ title }}</h1>
+        <p>
+            Заполните данные по операции движения денежных средств.
+        </p>
+    </div>
+
+    <div class="actions">
+        <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+            ← Назад к списку
+        </a>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card__header">
+        <h2 class="card__title">Данные записи</h2>
+        <p class="card__subtitle">
+            Поля типа операции, категории и подкатегории связаны между собой.
+        </p>
+    </div>
+
+    <div class="card__body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="filters">
+                <div class="form-group">
+                    <label for="{{ form.record_date.id_for_label }}">Дата</label>
+                    {{ form.record_date }}
+                    {% if form.record_date.errors %}
+                        <div class="field-error">{{ form.record_date.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.status.id_for_label }}">Статус</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}
+                        <div class="field-error">{{ form.status.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.operation_type.id_for_label }}">Тип операции</label>
+                    {{ form.operation_type }}
+                    {% if form.operation_type.errors %}
+                        <div class="field-error">{{ form.operation_type.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.category.id_for_label }}">Категория</label>
+                    {{ form.category }}
+                    {% if form.category.errors %}
+                        <div class="field-error">{{ form.category.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.subcategory.id_for_label }}">Подкатегория</label>
+                    {{ form.subcategory }}
+                    {% if form.subcategory.errors %}
+                        <div class="field-error">{{ form.subcategory.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.amount.id_for_label }}">Сумма</label>
+                    {{ form.amount }}
+                    {% if form.amount.errors %}
+                        <div class="field-error">{{ form.amount.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group section-gap">
+                <label for="{{ form.comment.id_for_label }}">Комментарий</label>
+                {{ form.comment }}
+                {% if form.comment.errors %}
+                    <div class="field-error">{{ form.comment.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-actions section-gap">
+                <button type="submit" class="btn btn-primary">
+                    Сохранить
+                </button>
+                <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script src='{% static "ledger/js/cashflow_form.js" %}'></script>
+{% endblock %}

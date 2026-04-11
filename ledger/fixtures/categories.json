@@ -1,0 +1,26 @@
+[
+  {
+    "model": "ledger.category",
+    "pk": 1,
+    "fields": {
+      "operation_type": 2,
+      "name": "Инфраструктура"
+    }
+  },
+  {
+    "model": "ledger.category",
+    "pk": 2,
+    "fields": {
+      "operation_type": 2,
+      "name": "Маркетинг"
+    }
+  },
+  {
+    "model": "ledger.category",
+    "pk": 3,
+    "fields": {
+      "operation_type": 1,
+      "name": "Продажи"
+    }
+  }
+]

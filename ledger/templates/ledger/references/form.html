@@ -1,0 +1,74 @@
+{% extends "ledger/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="page-header__content">
+        <h1>{{ title }}</h1>
+        <p>
+            Заполните поля формы.
+        </p>
+    </div>
+
+    <div class="actions">
+        <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+            ← Назад к списку записей
+        </a>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card__header">
+        <h2 class="card__title">Новый элемент</h2>
+        <p class="card__subtitle">
+            Проверьте значения перед сохранением.
+        </p>
+    </div>
+
+    <div class="card__body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="filters">
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <div class="text-muted">
+                                {{ field.help_text }}
+                            </div>
+                        {% endif %}
+
+                        {% if field.errors %}
+                            <div class="field-error">
+                                {{ field.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="form-actions section-gap">
+                <button type="submit" class="btn btn-primary">
+                    Сохранить
+                </button>
+                <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

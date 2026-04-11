@@ -9,12 +9,12 @@ from ledger.models import CashflowRecord, Category, OperationType, Status, Subca
 
 
 def _messages(response):
-    """Вспомогательная функция: возвращает список текстов сообщений из response."""
+    """Возвращает список текстов сообщений из response."""
     return [m.message for m in get_messages(response.wsgi_request)]
 
 
 def _post_follow(client, url_name, data=None, pk=None):
-    """Вспомогательная функция: отправляет POST и следует за редиректами."""
+    """Отправляет POST-запрос на URL по имени и следует за редиректами."""
     kwargs = {"pk": pk} if pk is not None else None
     url = reverse(url_name, kwargs=kwargs)
     return client.post(url, data=data or {}, follow=True)
@@ -79,7 +79,7 @@ class TestReferenceUpdateViews:
         payload_builder,
         success_message,
     ):
-        """Тест на то, что update-view обновляет name и показывает сообщение об успехе."""
+        """Проверяет, что update-view обновляет name и показывает сообщение об успехе."""
         obj = request.getfixturevalue(fixture_name)
         payload = payload_builder(obj, new_name)
 
@@ -136,7 +136,7 @@ class TestReferenceDeleteViews:
         model_class,
         success_message,
     ):
-        """Тест на то, что delete-view удаляет объект и показывает сообщение об успехе."""
+        """Проверяет, что delete-view удаляет объект и показывает сообщение об успехе."""
         obj = request.getfixturevalue(fixture_name)
 
         response = _post_follow(client, url_name, pk=obj.pk)
@@ -144,6 +144,67 @@ class TestReferenceDeleteViews:
         assert response.status_code == 200
         assert not model_class.objects.filter(pk=obj.pk).exists()
         assert success_message in _messages(response)
+
+    @pytest.mark.parametrize(
+        "fixture_name,url_name,model_class,dependency_factory,error_message",
+        [
+            (
+                "operation_type",
+                "operation_type_delete",
+                OperationType,
+                lambda request, obj: Category.objects.create(
+                    operation_type=obj,
+                    name=f"Зависимая категория {obj.pk}",
+                ),
+                "Нельзя удалить тип операции: есть связанные категории или записи.",
+            ),
+            (
+                "category",
+                "category_delete",
+                Category,
+                lambda request, obj: Subcategory.objects.create(
+                    category=obj,
+                    name=f"Зависимая подкатегория {obj.pk}",
+                ),
+                "Нельзя удалить категорию: есть связанные подкатегории или записи.",
+            ),
+            (
+                "subcategory",
+                "subcategory_delete",
+                Subcategory,
+                lambda request, obj: CashflowRecord.objects.create(
+                    record_date=date.today(),
+                    status=request.getfixturevalue("status"),
+                    operation_type=obj.category.operation_type,
+                    category=obj.category,
+                    subcategory=obj,
+                    amount=Decimal("100.00"),
+                    comment="Связанная запись",
+                ),
+                "Нельзя удалить подкатегорию: есть связанные записи.",
+            ),
+        ],
+        ids=["operation_type_restricted", "category_restricted", "subcategory_restricted"],
+    )
+    def test_delete_views_restricted(
+        self,
+        client,
+        request,
+        fixture_name,
+        url_name,
+        model_class,
+        dependency_factory,
+        error_message,
+    ):
+        """Проверяет, что delete-view не удаляет объект при RestrictedError и показывает ошибку."""
+        obj = request.getfixturevalue(fixture_name)
+        dependency_factory(request, obj)
+
+        response = _post_follow(client, url_name, pk=obj.pk)
+
+        assert response.status_code == 200
+        assert model_class.objects.filter(pk=obj.pk).exists()
+        assert error_message in _messages(response)
 
 
 @pytest.mark.django_db
@@ -221,7 +282,7 @@ class TestReferenceCreateViews:
         lookup,
         success_message,
     ):
-        """Тест на то, что create-view создает объект и показывает сообщение об успехе."""
+        """Проверяет, что create-view создает объект и показывает сообщение об успехе."""
         payload = payload_builder(request)
 
         response = _post_follow(client, url_name, data=payload)
@@ -232,11 +293,59 @@ class TestReferenceCreateViews:
 
 
 @pytest.mark.django_db
+class TestReferencesListView:
+    """Тесты для страницы управления справочниками (TemplateView)."""
+
+    @staticmethod
+    def _seed_for_order_check(context_key, operation_type, category):
+        if context_key == "all_statuses":
+            Status.objects.create(name="Я")
+            Status.objects.create(name="А")
+        elif context_key == "all_operation_types":
+            OperationType.objects.create(name="Я")
+            OperationType.objects.create(name="А")
+        elif context_key == "all_categories":
+            Category.objects.create(operation_type=operation_type, name="Я")
+            Category.objects.create(operation_type=operation_type, name="А")
+        elif context_key == "all_subcategories":
+            Subcategory.objects.create(category=category, name="Я")
+            Subcategory.objects.create(category=category, name="А")
+        else:
+            raise ValueError(f"Unknown context key: {context_key}")
+
+    @pytest.mark.parametrize(
+        "context_key",
+        [
+            "all_statuses",
+            "all_operation_types",
+            "all_categories",
+            "all_subcategories",
+        ],
+        ids=[
+            "statuses_ordered",
+            "operation_types_ordered",
+            "categories_ordered",
+            "subcategories_ordered",
+        ],
+    )
+    def test_references_lists_are_ordered_by_name(
+        self, client, context_key, operation_type, category
+    ):
+        """Проверяет, что справочники в контексте отсортированы по name."""
+        self._seed_for_order_check(context_key, operation_type, category)
+
+        response = client.get(reverse("references_list"))
+        names = [obj.name for obj in response.context[context_key]]
+
+        assert names == sorted(names)
+
+
+@pytest.mark.django_db
 class TestCashflowRecordViews:
     """Тесты для view записей о ДДС: CRUD, фильтрация и контекст."""
 
     def test_list_view_ok(self, client, cashflow_record):
-        """Тест на то, что list-view возвращает 200 и содержит запись в контексте."""
+        """Проверяет, что list-view возвращает 200 и содержит запись в контексте."""
         response = client.get(reverse("cashflow_list"))
 
         assert response.status_code == 200
@@ -245,7 +354,7 @@ class TestCashflowRecordViews:
     def test_create_view_creates_record_and_shows_message(
         self, client, status, operation_type, category, subcategory
     ):
-        """Тест на то, что create-view создает запись и показывает сообщение об успехе."""
+        """Проверяет, что create-view создает запись и показывает сообщение об успехе."""
         payload = {
             "record_date": str(date.today()),
             "status": status.id,
@@ -263,7 +372,7 @@ class TestCashflowRecordViews:
         assert "Запись успешно создана." in _messages(response)
 
     def test_delete_view_deletes_record_and_shows_message(self, client, cashflow_record):
-        """Тест на то, что delete-view удаляет запись и показывает сообщение об успехе."""
+        """Проверяет, что delete-view удаляет запись и показывает сообщение об успехе."""
         response = _post_follow(client, "cashflow_delete", pk=cashflow_record.pk)
 
         assert response.status_code == 200
@@ -298,7 +407,7 @@ class TestCashflowRecordViews:
         category,
         subcategory,
     ):
-        """Тест на то, что list-view фильтрует записи по каждому внешнему ключу."""
+        """Проверяет, что list-view фильтрует записи по каждому внешнему ключу."""
         base_kwargs = {
             "record_date": date.today(),
             "status": status,
@@ -336,7 +445,7 @@ class TestCashflowRecordViews:
     def test_list_view_filters_by_date_range(
         self, client, status, operation_type, category, subcategory
     ):
-        """Тест на то, что list-view фильтрует записи по диапазону дат."""
+        """Проверяет, что list-view фильтрует записи по диапазону дат."""
         today = date.today()
         old_date = today - timedelta(days=10)
 
@@ -370,7 +479,7 @@ class TestCashflowRecordViews:
     def test_list_view_context_dependent_categories_and_subcategories(
         self, client, operation_type, category, subcategory
     ):
-        """Тест на то, что контекст содержит только связанные категории и подкатегории."""
+        """Проверяет, что контекст содержит только связанные категории и подкатегории."""
         op2 = OperationType.objects.create(name="Пополнение")
         category2 = Category.objects.create(operation_type=op2, name="Инвестиции")
         subcategory2 = Subcategory.objects.create(category=category2, name="ETF")
@@ -391,7 +500,7 @@ class TestCashflowRecordViews:
     def test_update_view_post_updates_record(
         self, client, cashflow_record, status, operation_type, category, subcategory
     ):
-        """Тест на то, что POST update-view обновляет запись и показывает сообщение."""
+        """Проверяет, что POST update-view обновляет запись и показывает сообщение."""
         payload = {
             "record_date": str(cashflow_record.record_date),
             "status": status.id,

@@ -1,0 +1,88 @@
+{% extends "ledger/base.html" %}
+
+{% block title %}Удаление записи{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="page-header__content">
+        <h1>Удаление записи</h1>
+        <p>
+            Подтвердите удаление записи о движении денежных средств.
+        </p>
+    </div>
+
+    <div class="actions">
+        <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+            ← Назад к списку
+        </a>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card__header">
+        <h2 class="card__title">Вы действительно хотите удалить запись?</h2>
+        <p class="card__subtitle">
+            После удаления запись будет невозможно восстановить.
+        </p>
+    </div>
+
+    <div class="card__body">
+        <div class="delete-summary">
+            <div class="summary-row">
+                <span class="text-muted">Дата:</span>
+                <strong>{{ record.record_date|date:"d.m.Y" }}</strong>
+            </div>
+
+            <div class="summary-row">
+                <span class="text-muted">Статус:</span>
+                <strong>
+                    {% if record.status %}
+                        {{ record.status.name }}
+                    {% else %}
+                        Без статуса
+                    {% endif %}
+                </strong>
+            </div>
+
+            <div class="summary-row">
+                <span class="text-muted">Тип операции:</span>
+                <strong>{{ record.operation_type.name }}</strong>
+            </div>
+
+            <div class="summary-row">
+                <span class="text-muted">Категория:</span>
+                <strong>{{ record.category.name }}</strong>
+            </div>
+
+            <div class="summary-row">
+                <span class="text-muted">Подкатегория:</span>
+                <strong>{{ record.subcategory.name }}</strong>
+            </div>
+
+            <div class="summary-row">
+                <span class="text-muted">Сумма:</span>
+                <strong>{{ record.amount }} ₽</strong>
+            </div>
+
+            {% if record.comment %}
+                <div class="summary-row">
+                    <span class="text-muted">Комментарий:</span>
+                    <strong>{{ record.comment }}</strong>
+                </div>
+            {% endif %}
+        </div>
+
+        <form method="post" class="section-gap">
+            {% csrf_token %}
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary text-danger">
+                    Удалить
+                </button>
+                <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

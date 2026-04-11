@@ -1,0 +1,50 @@
+{% extends "ledger/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="page-header__content">
+        <h1>{{ title }}</h1>
+        <p>
+            Подтвердите удаление элемента.
+        </p>
+    </div>
+
+    <div class="actions">
+        <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+            ← Назад к списку записей
+        </a>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card__header">
+        <h2 class="card__title">Удаление</h2>
+        <p class="card__subtitle">
+            После удаления элемент может перестать быть доступным в связанных записях и формах.
+        </p>
+    </div>
+
+    <div class="card__body">
+        <div class="delete-summary">
+            <div class="summary-row">
+                <span class="text-muted">Элемент:</span>
+                <strong>{{ object }}</strong>
+            </div>
+        </div>
+
+        <form method="post" class="section-gap">
+            {% csrf_token %}
+            <div class="form-actions">
+                <button type="submit" class="btn btn-danger">
+                    Удалить
+                </button>
+                <a href="{% url 'cashflow_list' %}" class="btn btn-secondary">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

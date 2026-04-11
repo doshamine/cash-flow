@@ -1,0 +1,23 @@
+[
+  {
+    "model": "ledger.status",
+    "pk": 1,
+    "fields": {
+      "name": "Бизнес"
+    }
+  },
+  {
+    "model": "ledger.status",
+    "pk": 2,
+    "fields": {
+      "name": "Личное"
+    }
+  },
+  {
+    "model": "ledger.status",
+    "pk": 3,
+    "fields": {
+      "name": "Налог"
+    }
+  }
+]
